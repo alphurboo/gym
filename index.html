@@ -46,9 +46,9 @@
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 13px; margin-bottom: 12px; }
     .card-title { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 9px; display: flex; justify-content: space-between; align-items: center; }
 
-    /* 部位標籤與動作網格 */
-    .chip-group { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px; }
-    .chip { font-size: 0.74rem; font-weight: 600; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--inner); color: var(--text-muted); white-space: nowrap; cursor: pointer; flex-shrink: 0; }
+    /* 部位標籤：英文 5 等分 一行過排版 */
+    .chip-group { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 8px; }
+    .chip { font-size: 0.68rem; font-weight: 700; padding: 7px 1px; border-radius: 8px; border: 1px solid var(--border); background: var(--inner); color: var(--text-muted); text-align: center; cursor: pointer; white-space: nowrap; }
     .chip.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
 
     .ex-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; max-height: 135px; overflow-y: auto; margin-bottom: 8px; }
@@ -63,8 +63,12 @@
     .sets-header { display: grid; grid-template-columns: 42px 1fr 1fr 28px; gap: 6px; font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-align: center; margin-bottom: 4px; }
     .set-row { display: grid; grid-template-columns: 42px 1fr 1fr 28px; gap: 6px; align-items: center; margin-bottom: 6px; }
     .set-tag { font-size: 0.72rem; font-weight: 700; color: var(--accent); text-align: center; background: var(--inner); padding: 7px 0; border-radius: 6px; border: 1px solid var(--border); }
+    
     .num-input { width: 100%; background: var(--inner); border: 1px solid var(--border); color: #fff; font-size: 0.95rem; font-weight: 700; text-align: center; padding: 7px 2px; border-radius: 8px; outline: none; font-family: monospace; }
     .num-input:focus { border-color: var(--accent); }
+    /* 半透明預設舊數據樣式 */
+    .num-input::placeholder { color: rgba(255, 255, 255, 0.28); font-weight: 600; }
+    
     .btn-del-set { background: transparent; border: none; color: var(--danger); font-size: 1rem; cursor: pointer; }
 
     .btn-add-set { width: 100%; background: var(--inner); border: 1px dashed var(--accent); color: var(--accent); padding: 8px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; cursor: pointer; margin-top: 2px; margin-bottom: 9px; }
@@ -87,7 +91,7 @@
     .history-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.75rem; }
     .history-row:last-child { border-bottom: none; }
 
-    /* 底部 Toast 提示 (取代彈窗) */
+    /* 底部 Toast 提示 */
     .toast {
       position: fixed;
       bottom: 24px;
@@ -132,16 +136,16 @@
         <input type="date" id="gymDate" style="background:transparent; border:none; color:var(--text-muted); font-size:0.75rem; outline:none;">
       </div>
 
-      <!-- 分類標籤 -->
+      <!-- 分類標籤 (純英文 5 等分 一行過) -->
       <div class="chip-group">
-        <button class="chip active" onclick="filterCat('胸')">胸 (Chest)</button>
-        <button class="chip" onclick="filterCat('背')">背 (Back)</button>
-        <button class="chip" onclick="filterCat('手臂')">手臂 (Arms)</button>
-        <button class="chip" onclick="filterCat('肩')">肩 (Shoulders)</button>
-        <button class="chip" onclick="filterCat('腿')">腿 (Legs)</button>
+        <button class="chip active" onclick="filterCat('Chest')">Chest</button>
+        <button class="chip" onclick="filterCat('Back')">Back</button>
+        <button class="chip" onclick="filterCat('Arms')">Arms</button>
+        <button class="chip" onclick="filterCat('Shoulders')">Shoulders</button>
+        <button class="chip" onclick="filterCat('Legs')">Legs</button>
       </div>
 
-      <!-- 動作網格 + 自訂動作按鈕 -->
+      <!-- 動作網格 -->
       <div class="ex-grid" id="exGrid"></div>
 
       <!-- 上次紀錄看板 -->
@@ -150,7 +154,7 @@
         <span id="prevSummary" style="color:var(--text-muted);">請先選擇動作</span>
       </div>
 
-      <!-- 重量與次數 (預設 3 組 = 6 個 Textbox) -->
+      <!-- 重量與次數 -->
       <div class="sets-header">
         <div>組數</div>
         <div id="weightHeaderLbl">重量 (lbs)</div>
@@ -193,7 +197,7 @@
   <section id="tab3" style="display: none;">
     <div class="card">
       <div class="card-title">
-        <span>📈 動作進度分析</span>
+        <span>📈 核心動作進度</span>
         <select id="analyticsExSelect" onchange="renderAnalytics()" style="background:var(--inner); border:1px solid var(--border); color:var(--accent); font-size:0.72rem; padding:4px 6px; border-radius:6px; outline:none; max-width:180px;"></select>
       </div>
 
@@ -232,7 +236,7 @@
   <!-- 浮動 Toast 提示 -->
   <div id="toast" class="toast">✅ 已儲存動作</div>
 
-  <!-- 備份與匯入 Modal (純 .json 檔案操作) -->
+  <!-- 備份與匯入 Modal (.json 檔案) -->
   <div class="modal" id="backupModal">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -242,8 +246,6 @@
 
       <div style="display:flex; flex-direction:column; gap:8px;">
         <button class="btn-save" onclick="exportJSONFile()">📥 下載備份 .json 檔案</button>
-        
-        <!-- 隱藏原生 File Input -->
         <input type="file" id="jsonFileInput" accept=".json" style="display:none;" onchange="handleFileImport(event)" />
         <button class="btn-action" style="padding:11px; font-weight:700; color:#fff;" onclick="document.getElementById('jsonFileInput').click()">📤 選擇 .json 檔案匯入</button>
       </div>
@@ -263,11 +265,11 @@
       <div style="display:flex; flex-direction:column; gap:8px;">
         <input type="text" id="newExName" placeholder="動作名稱 (例: Cable Row)" style="background:var(--inner); border:1px solid var(--border); color:#fff; padding:9px; border-radius:8px; font-size:0.82rem; outline:none;">
         <select id="newExCat" style="background:var(--inner); border:1px solid var(--border); color:var(--accent); padding:9px; border-radius:8px; font-size:0.82rem; outline:none;">
-          <option value="胸">胸 (Chest)</option>
-          <option value="背">背 (Back)</option>
-          <option value="手臂">手臂 (Arms)</option>
-          <option value="肩">肩 (Shoulders)</option>
-          <option value="腿">腿 (Legs)</option>
+          <option value="Chest">Chest</option>
+          <option value="Back">Back</option>
+          <option value="Arms">Arms</option>
+          <option value="Shoulders">Shoulders</option>
+          <option value="Legs">Legs</option>
         </select>
         <button class="btn-save" onclick="saveCustomExercise()">確認新增動作</button>
       </div>
@@ -275,29 +277,42 @@
   </div>
 
 <script>
-  // 基礎動作庫 (Re pec fly 已改為「背」)
+  // 基礎動作庫
   const DEFAULT_EXERCISES = [
-    { cat: '胸', name: 'Chest press' },
-    { cat: '胸', name: 'Pec fly' },
-    { cat: '胸', name: 'High cable fly' },
-    { cat: '胸', name: 'Cable Pec fly' },
-    { cat: '背', name: 'Assist pullup' },
-    { cat: '背', name: 'Row' },
-    { cat: '背', name: '單手 Row' },
-    { cat: '背', name: 'Row 中背' },
-    { cat: '背', name: 'Pulldown' },
-    { cat: '背', name: 'Re pec fly' },
-    { cat: '手臂', name: 'Overhead Triceps Extension' },
-    { cat: '手臂', name: 'Tricep Pushdown' },
-    { cat: '手臂', name: 'Incline Dumbbell Curl' },
-    { cat: '手臂', name: 'Preacher Curl' },
-    { cat: '肩', name: 'Lateral raise' },
-    { cat: '肩', name: 'Shoulder press' },
-    { cat: '腿', name: 'Leg press' },
-    { cat: '腿', name: 'Leg curl' }
+    { cat: 'Chest', name: 'Chest press' },
+    { cat: 'Chest', name: 'Pec fly' },
+    { cat: 'Chest', name: 'High cable fly' },
+    { cat: 'Chest', name: 'Cable Pec fly' },
+    { cat: 'Back', name: 'Assist pullup' },
+    { cat: 'Back', name: 'Row' },
+    { cat: 'Back', name: '單手 Row' },
+    { cat: 'Back', name: 'Row 中背' },
+    { cat: 'Back', name: 'Pulldown' },
+    { cat: 'Back', name: 'Re pec fly' },
+    { cat: 'Arms', name: 'Overhead Triceps Extension' },
+    { cat: 'Arms', name: 'Tricep Pushdown' },
+    { cat: 'Arms', name: 'Incline Dumbbell Curl' },
+    { cat: 'Arms', name: 'Preacher Curl' },
+    { cat: 'Shoulders', name: 'Lateral raise' },
+    { cat: 'Shoulders', name: 'Shoulder press' },
+    { cat: 'Legs', name: 'Leg press' },
+    { cat: 'Legs', name: 'Leg curl' }
   ];
 
-  let currentCategory = '胸';
+  // 數據分析限定追蹤的 9 大核心動作
+  const ANALYTICS_TARGET_EXERCISES = [
+    'Chest press',
+    'Assist pullup',
+    'Pec fly',
+    'Re pec fly',
+    'Lateral raise',
+    'Overhead Triceps Extension',
+    'Tricep Pushdown',
+    'Incline Dumbbell Curl',
+    'Preacher Curl'
+  ];
+
+  let currentCategory = 'Chest';
   let selectedExercise = 'Chest press';
   let db = JSON.parse(localStorage.getItem('GYM_LOG_DB_V2') || '[]');
   let customExercises = JSON.parse(localStorage.getItem('GYM_CUSTOM_EX') || '[]');
@@ -305,6 +320,16 @@
   const dateInput = document.getElementById('gymDate');
   dateInput.value = new Date().toISOString().split('T')[0];
   dateInput.addEventListener('change', renderTodayList);
+
+  function normalizeCategory(cat) {
+    if (!cat) return 'Chest';
+    if (cat === '胸' || cat.toLowerCase() === 'chest') return 'Chest';
+    if (cat === '背' || cat.toLowerCase() === 'back') return 'Back';
+    if (cat === '手臂' || cat.toLowerCase() === 'arms') return 'Arms';
+    if (cat === '肩' || cat.toLowerCase() === 'shoulders') return 'Shoulders';
+    if (cat === '腿' || cat.toLowerCase() === 'legs') return 'Legs';
+    return cat;
+  }
 
   function getAllExercises() {
     return [...DEFAULT_EXERCISES, ...customExercises];
@@ -325,7 +350,7 @@
   function filterCat(cat) {
     currentCategory = cat;
     document.querySelectorAll('.chip').forEach(c => {
-      c.classList.toggle('active', c.textContent.includes(cat));
+      c.classList.toggle('active', c.textContent.trim().toLowerCase() === cat.toLowerCase());
     });
     renderExGrid();
   }
@@ -334,7 +359,7 @@
     const grid = document.getElementById('exGrid');
     grid.innerHTML = '';
     const all = getAllExercises();
-    const filtered = all.filter(e => e.cat === currentCategory);
+    const filtered = all.filter(e => normalizeCategory(e.cat) === currentCategory);
 
     filtered.forEach(e => {
       const btn = document.createElement('button');
@@ -344,7 +369,6 @@
       grid.appendChild(btn);
     });
 
-    // 底部 ＋ 新增自訂動作按鈕
     const addBtn = document.createElement('button');
     addBtn.className = 'btn-custom-ex';
     addBtn.textContent = `＋ 自訂【${currentCategory}】新動作`;
@@ -374,7 +398,7 @@
     showToast(`✅ 已新增動作：${name}`);
   }
 
-  // 3. 選中動作 ➔ 自動帶入上次數據 (預設 3 組 = 6 個輸入框)
+  // 3. 選中動作 ➔ 自動以半透明 Placeholder 帶入上次數據
   function selectExercise(name) {
     selectedExercise = name;
     renderExGrid();
@@ -395,6 +419,7 @@
       prevBox.innerHTML = `<strong>${last.date}</strong> ➔ ${last.formatted}`;
       document.getElementById('noteInput').value = last.note || '';
 
+      // 以半透明 placeholder 填入舊數據，value 保持為空
       last.sets.forEach(set => addSetRow(set.weight, set.reps));
       while (container.children.length < 3) addSetRow('', '');
     } else {
@@ -406,7 +431,7 @@
     }
   }
 
-  function addSetRow(defaultWeight = '', defaultReps = '') {
+  function addSetRow(placeholderWeight = '', placeholderReps = '') {
     const container = document.getElementById('setsContainer');
     const setIndex = container.children.length + 1;
 
@@ -414,8 +439,8 @@
     row.className = 'set-row';
     row.innerHTML = `
       <div class="set-tag">S${setIndex}</div>
-      <input type="number" step="any" class="num-input set-weight" placeholder="lbs" value="${defaultWeight}">
-      <input type="number" class="num-input set-reps" placeholder="次" value="${defaultReps}">
+      <input type="number" step="any" class="num-input set-weight" placeholder="${placeholderWeight !== '' ? placeholderWeight : 'lbs'}" value="">
+      <input type="number" class="num-input set-reps" placeholder="${placeholderReps !== '' ? placeholderReps : '次'}" value="">
       <button class="btn-del-set" onclick="delSetRow(this)">✕</button>
     `;
     container.appendChild(row);
@@ -430,7 +455,7 @@
     });
   }
 
-  // 4. 儲存動作 (靜音 Toast 提示)
+  // 4. 儲存動作 (無輸入自動採用 Placeholder 舊數據)
   function saveExerciseRecord() {
     const date = dateInput.value;
     const note = document.getElementById('noteInput').value.trim();
@@ -438,9 +463,19 @@
 
     const sets = [];
     rows.forEach(r => {
-      const w = parseFloat(r.querySelector('.set-weight').value);
-      const rep = parseInt(r.querySelector('.set-reps').value);
-      if (!isNaN(w) && !isNaN(rep)) sets.push({ weight: w, reps: rep });
+      const wInput = r.querySelector('.set-weight');
+      const repInput = r.querySelector('.set-reps');
+
+      // 若有新輸入取新值，否則取半透明 placeholder 舊值
+      const rawW = wInput.value.trim() !== '' ? wInput.value.trim() : wInput.placeholder;
+      const rawRep = repInput.value.trim() !== '' ? repInput.value.trim() : repInput.placeholder;
+
+      const w = parseFloat(rawW);
+      const rep = parseInt(rawRep);
+
+      if (!isNaN(w) && !isNaN(rep)) {
+        sets.push({ weight: w, reps: rep });
+      }
     });
 
     if (sets.length === 0) {
@@ -450,7 +485,8 @@
 
     const formatted = formatSetsToText(sets, note);
     const all = getAllExercises();
-    const matchCat = all.find(e => e.name === selectedExercise)?.cat || currentCategory;
+    const matched = all.find(e => e.name.toLowerCase() === selectedExercise.toLowerCase());
+    const matchCat = matched ? normalizeCategory(matched.cat) : currentCategory;
 
     const record = {
       id: Date.now(),
@@ -575,15 +611,10 @@
     }).join('');
   }
 
-  // 7. 深度分析數據 (Assist Pullup 逆向判斷 + 總訓練量 + 佔比)
+  // 7. 深度分析數據 (限定 9 大核心動作)
   function populateAnalyticsDropdown() {
     const sel = document.getElementById('analyticsExSelect');
-    const existing = [...new Set(db.map(i => i.name))];
-    if (existing.length === 0) {
-      sel.innerHTML = '<option>暫無數據</option>';
-      return;
-    }
-    sel.innerHTML = existing.map(e => `<option value="${e}">${e}</option>`).join('');
+    sel.innerHTML = ANALYTICS_TARGET_EXERCISES.map(e => `<option value="${e}">${e}</option>`).join('');
     renderAnalytics();
     renderMuscleDistribution();
   }
@@ -591,10 +622,19 @@
   function renderAnalytics() {
     const exName = document.getElementById('analyticsExSelect').value;
     const timelineEl = document.getElementById('analyticsTimeline');
-    if (!exName || exName === '暫無數據') return;
+    if (!exName) return;
 
-    const records = db.filter(i => i.name === exName).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const records = db.filter(i => i.name.toLowerCase() === exName.toLowerCase()).sort((a, b) => new Date(b.date) - new Date(a.date));
     const isAssist = exName.toLowerCase().includes('assist');
+
+    if (records.length === 0) {
+      document.getElementById('statPrimaryMetric').textContent = '--';
+      document.getElementById('statEst1RM').textContent = '--';
+      document.getElementById('statTotalVol').textContent = '0';
+      document.getElementById('statTotalSets').textContent = '0 組';
+      timelineEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.75rem; padding:15px;">暫無此動作的訓練數據</div>';
+      return;
+    }
 
     let bestWeight = isAssist ? 9999 : 0;
     let max1RM = 0;
@@ -640,7 +680,6 @@
       `;
     }).join('');
 
-    // 更新指標看板
     if (isAssist) {
       document.getElementById('statPrimaryLbl').textContent = '最低輔助 (最勁紀錄)';
       document.getElementById('statPrimaryMetric').textContent = (bestWeight === 9999 ? '--' : bestWeight + ' lbs');
@@ -657,11 +696,11 @@
   }
 
   function renderMuscleDistribution() {
-    const cats = { '胸': 0, '背': 0, '手臂': 0, '肩': 0, '腿': 0 };
+    const cats = { 'Chest': 0, 'Back': 0, 'Arms': 0, 'Shoulders': 0, 'Legs': 0 };
     let totalSets = 0;
 
     db.forEach(rec => {
-      const c = rec.category || '胸';
+      const c = normalizeCategory(rec.category);
       const setsCount = rec.sets ? rec.sets.length : 1;
       if (cats[c] !== undefined) {
         cats[c] += setsCount;
@@ -671,7 +710,7 @@
 
     if (totalSets === 0) return;
 
-    const colors = { '胸': '#38bdf8', '背': '#10b981', '手臂': '#f59e0b', '肩': '#ec4899', '腿': '#a855f7' };
+    const colors = { 'Chest': '#38bdf8', 'Back': '#10b981', 'Arms': '#f59e0b', 'Shoulders': '#ec4899', 'Legs': '#a855f7' };
     const barEl = document.getElementById('muscleDistributionBar');
     const legendEl = document.getElementById('muscleDistributionLegend');
 
@@ -731,7 +770,7 @@
   }
 
   // 啟動初始化
-  filterCat('胸');
+  filterCat('Chest');
   selectExercise('Chest press');
   renderTodayList();
 </script>
