@@ -27,7 +27,6 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     
-    /* 適配 iPhone 16 Pro 寬度與 Safe Area */
     body {
       background: var(--bg);
       color: var(--text);
@@ -59,7 +58,7 @@
     /* 上次紀錄看板 */
     .prev-box { background: var(--inner); border: 1px dashed var(--border); border-radius: 10px; padding: 8px 10px; font-size: 0.75rem; line-height: 1.4; margin-bottom: 11px; }
 
-    /* 6個輸入框 (Set Rows) */
+    /* 輸入框 (Set Rows) */
     .sets-header { display: grid; grid-template-columns: 42px 1fr 1fr 28px; gap: 6px; font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-align: center; margin-bottom: 4px; }
     .set-row { display: grid; grid-template-columns: 42px 1fr 1fr 28px; gap: 6px; align-items: center; margin-bottom: 6px; }
     .set-tag { font-size: 0.72rem; font-weight: 700; color: var(--accent); text-align: center; background: var(--inner); padding: 7px 0; border-radius: 6px; border: 1px solid var(--border); }
@@ -122,7 +121,7 @@
 </head>
 <body>
 
-  <!-- 頂部 3 個主要選擇 -->
+  <!-- 頂部導航 -->
   <nav class="top-nav">
     <button class="nav-btn active" id="tabBtn1" onclick="switchTab(1)">記錄今日</button>
     <button class="nav-btn" id="tabBtn2" onclick="switchTab(2)">歷史紀錄</button>
@@ -137,7 +136,7 @@
         <input type="date" id="gymDate" style="background:transparent; border:none; color:var(--text-muted); font-size:0.75rem; outline:none;">
       </div>
 
-      <!-- 分類標籤 (純英文 5 等分 一行過) -->
+      <!-- 分類標籤 -->
       <div class="chip-group">
         <button class="chip active" onclick="handleCatClick('Chest')">Chest</button>
         <button class="chip" onclick="handleCatClick('Back')">Back</button>
@@ -196,21 +195,18 @@
 
   <!-- ================= TAB 3: 深度分析數據 ================= -->
   <section id="tab3" style="display: none;">
-    <!-- 1. 全身部位訓練組數佔比 (置頂) -->
     <div class="card">
       <div class="card-title"><span>📊 全身部位訓練組數佔比</span></div>
       <div id="muscleDistributionBar" style="display:flex; height:10px; border-radius:5px; overflow:hidden; background:#243044; margin-bottom:8px;"></div>
       <div id="muscleDistributionLegend" style="display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-muted); font-weight:700;"></div>
     </div>
 
-    <!-- 2. 核心動作進度與趨勢 -->
     <div class="card">
       <div class="card-title">
         <span>📈 核心動作進度</span>
         <select id="analyticsExSelect" onchange="renderAnalytics()" style="background:var(--inner); border:1px solid var(--border); color:var(--accent); font-size:0.72rem; padding:4px 6px; border-radius:6px; outline:none; max-width:180px;"></select>
       </div>
 
-      <!-- 4 大核心進度指標 -->
       <div class="stat-grid-4">
         <div class="stat-box">
           <div class="stat-val" id="statPrimaryMetric">--</div>
@@ -230,7 +226,6 @@
         </div>
       </div>
 
-      <!-- 互動折線圖容器 -->
       <div style="background:var(--inner); border:1px solid var(--border); border-radius:10px; padding:10px; margin-top:6px; margin-bottom:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:0.68rem; font-weight:700;">
           <span style="color:var(--text-muted);">📈 力量與容量趨勢</span>
@@ -240,7 +235,6 @@
           </div>
         </div>
 
-        <!-- 觸控滑動即時數據顯示欄 -->
         <div id="chartTooltipBar" style="display:flex; justify-content:space-between; align-items:center; background:rgba(56,189,248,0.06); border:1px solid rgba(56,189,248,0.18); padding:5px 8px; border-radius:6px; margin-bottom:8px; font-size:0.72rem; font-family:monospace; min-height:26px;">
           <span id="ttDate" style="color:#fff; font-weight:700;">👆 滑動圖表查看數據</span>
           <span id="ttMetric" style="color:#38bdf8; font-weight:800;"></span>
@@ -258,7 +252,7 @@
   <!-- 浮動 Toast 提示 -->
   <div id="toast" class="toast">✅ 已儲存動作</div>
 
-  <!-- 備份與匯入 Modal (.json 檔案) -->
+  <!-- 備份與匯入 Modal -->
   <div class="modal" id="backupModal">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -321,7 +315,6 @@
     { cat: 'Legs', name: 'Leg curl' }
   ];
 
-  // 數據分析限定追蹤的 9 大核心動作
   const ANALYTICS_TARGET_EXERCISES = [
     'Chest press',
     'Assist pullup',
@@ -339,8 +332,9 @@
   let db = JSON.parse(localStorage.getItem('GYM_LOG_DB_V2') || '[]');
   let customExercises = JSON.parse(localStorage.getItem('GYM_CUSTOM_EX') || '[]');
 
-  // 編輯模式狀態變量
+  // 編輯模式與快照變量
   let editingRecordId = null;
+  let initialSetsSnapshot = "";
 
   // 圖表互動狀態
   let activeChartData = [];
@@ -370,23 +364,38 @@
     return [...DEFAULT_EXERCISES, ...customExercises];
   }
 
-  // 防呆檢查：檢查用戶當前在輸入框是否有實際輸入數值或備忘文字
-  function checkHasDirtyInput() {
+  // 取得當前輸入框數值快照
+  function getSetsSnapshot() {
     const rows = document.querySelectorAll('#setsContainer .set-row');
-    for (let r of rows) {
+    const values = [];
+    rows.forEach(r => {
       const w = r.querySelector('.set-weight').value.trim();
       const rep = r.querySelector('.set-reps').value.trim();
-      if (w !== '' || rep !== '') return true;
+      values.push(`${w}-${rep}`);
+    });
+    return values.join('|');
+  }
+
+  // 防呆檢查：只在「重量」或「Reps」輸入框有手動輸入或實際改變時才提示
+  function checkHasDirtyInput() {
+    const currentSnapshot = getSetsSnapshot();
+    if (editingRecordId !== null) {
+      return currentSnapshot !== initialSetsSnapshot;
+    } else {
+      const rows = document.querySelectorAll('#setsContainer .set-row');
+      for (let r of rows) {
+        const w = r.querySelector('.set-weight').value.trim();
+        const rep = r.querySelector('.set-reps').value.trim();
+        if (w !== '' || rep !== '') return true;
+      }
+      return false;
     }
-    const note = document.getElementById('noteInput').value.trim();
-    if (editingRecordId === null && note !== '') return true;
-    return false;
   }
 
   function handleCatClick(cat) {
     if (cat === currentCategory) return;
     if (checkHasDirtyInput()) {
-      if (!confirm("當前輸入尚未儲存，是否放棄並切換部位？")) return;
+      if (!confirm("當前輸入尚未儲存，是否放棄並切換動作？")) return;
     }
     resetEditingMode();
     filterCat(cat);
@@ -497,15 +506,17 @@
       addSetRow('', '');
       addSetRow('', '');
     }
+
+    initialSetsSnapshot = getSetsSnapshot();
   }
 
-  // 載入指定完成紀錄到上方進行修改
+  // 載入指定紀錄進行修改
   function loadRecordForEdit(recordId) {
     const item = db.find(r => r.id === recordId);
     if (!item) return;
 
     if (checkHasDirtyInput() && editingRecordId !== recordId) {
-      if (!confirm("當前輸入尚未儲存，是否放棄並載入修改此紀錄？")) return;
+      if (!confirm("當前輸入尚未儲存，是否放棄並載入此紀錄？")) return;
     }
 
     editingRecordId = item.id;
@@ -529,7 +540,6 @@
       prevBox.innerHTML = `<span style="color:var(--text-muted);">歷史紀錄</span>`;
     }
 
-    // 將該次完成的數據實體載入輸入框
     const container = document.getElementById('setsContainer');
     container.innerHTML = '';
     item.sets.forEach(s => {
@@ -538,10 +548,11 @@
 
     document.getElementById('noteInput').value = item.note || '';
 
-    // 更新儲存按鈕外觀為「修改模式」
     const saveBtn = document.getElementById('btnSave');
     saveBtn.textContent = '💾 更新修改紀錄 (點擊保存)';
     saveBtn.classList.add('editing-mode');
+
+    initialSetsSnapshot = getSetsSnapshot();
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast(`✏️ 載入 ${item.name} 進行修改`);
@@ -616,7 +627,6 @@
     const matchCat = matched ? normalizeCategory(matched.cat) : currentCategory;
 
     if (editingRecordId !== null) {
-      // 原地更新修改模式
       const idx = db.findIndex(r => r.id === editingRecordId);
       if (idx !== -1) {
         db[idx].sets = sets;
@@ -628,7 +638,6 @@
       showToast(`✅ 已更新 ${selectedExercise}`);
       resetEditingMode();
     } else {
-      // 原生新增模式
       const record = {
         id: Date.now(),
         date: date,
@@ -674,7 +683,7 @@
     setTimeout(() => t.classList.remove('show'), 1500);
   }
 
-  // 5. 今日完成清單 (點擊紀錄項目可直接載入上方修改)
+  // 5. 今日完成清單
   function renderTodayList() {
     const curDate = dateInput.value;
     const listEl = document.getElementById('todayList');
@@ -705,7 +714,7 @@
     showToast('🗑️ 已刪除記錄');
   }
 
-  // 6. 複製今日格式 (徹底修復 UTC 時區導致日期變昨天問題)
+  // 6. 複製今日格式 (安全字串分割)
   function copyTodayFormatted() {
     const curDate = dateInput.value;
     const items = db.filter(item => item.date === curDate);
@@ -714,7 +723,6 @@
       return;
     }
     
-    // 直接字串分割取得選取日期，絕不受瀏覽器 UTC-4 時區偏移影響
     const [y, m, d] = curDate.split('-').map(v => parseInt(v, 10));
     let out = `${d}/${m}\n`;
     items.forEach(item => { out += `${item.name} ${item.formatted}\n`; });
@@ -756,7 +764,7 @@
     }).join('');
   }
 
-  // 8. 深度分析數據 (折線圖 + 指標 + Timeline)
+  // 8. 深度分析數據
   function populateAnalyticsDropdown() {
     const sel = document.getElementById('analyticsExSelect');
     sel.innerHTML = ANALYTICS_TARGET_EXERCISES.map(e => `<option value="${e}">${e}</option>`).join('');
