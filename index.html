@@ -73,11 +73,13 @@
     .btn-add-set { width: 100%; background: var(--inner); border: 1px dashed var(--accent); color: var(--accent); padding: 8px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; cursor: pointer; margin-top: 2px; margin-bottom: 9px; }
     .btn-add-set:active { background: var(--accent-dim); }
 
-    .btn-save { width: 100%; background: var(--accent); color: #000; font-weight: 800; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-size: 0.92rem; }
+    .btn-save { width: 100%; background: var(--accent); color: #000; font-weight: 800; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-size: 0.92rem; transition: all 0.2s; }
     .btn-save:active { transform: scale(0.98); }
+    .btn-save.editing-mode { background: var(--warning); color: #000; }
 
     /* 列表與分析 */
-    .log-item { background: var(--inner); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+    .log-item { background: var(--inner); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s; }
+    .log-item:active { border-color: var(--accent); }
     .log-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
     .log-title { font-weight: 700; font-size: 0.86rem; color: var(--accent); }
     .log-body { font-family: monospace; font-size: 0.8rem; color: var(--text); }
@@ -137,11 +139,11 @@
 
       <!-- 分類標籤 (純英文 5 等分 一行過) -->
       <div class="chip-group">
-        <button class="chip active" onclick="filterCat('Chest')">Chest</button>
-        <button class="chip" onclick="filterCat('Back')">Back</button>
-        <button class="chip" onclick="filterCat('Arms')">Arms</button>
-        <button class="chip" onclick="filterCat('Shoulders')">Shoulders</button>
-        <button class="chip" onclick="filterCat('Legs')">Legs</button>
+        <button class="chip active" onclick="handleCatClick('Chest')">Chest</button>
+        <button class="chip" onclick="handleCatClick('Back')">Back</button>
+        <button class="chip" onclick="handleCatClick('Arms')">Arms</button>
+        <button class="chip" onclick="handleCatClick('Shoulders')">Shoulders</button>
+        <button class="chip" onclick="handleCatClick('Legs')">Legs</button>
       </div>
 
       <!-- 動作網格 -->
@@ -168,7 +170,7 @@
       <!-- 器材備忘 -->
       <input type="text" id="noteInput" placeholder="器材設定 / 備忘" style="width:100%; background:var(--inner); border:1px solid var(--border); color:#fff; padding:8px 10px; border-radius:8px; font-size:0.78rem; margin-bottom:9px; outline:none;" />
 
-      <button class="btn-save" onclick="saveExerciseRecord()">💾 儲存動作</button>
+      <button id="btnSave" class="btn-save" onclick="saveExerciseRecord()">💾 儲存動作</button>
     </div>
 
     <!-- 今日已完成列表 -->
@@ -238,7 +240,7 @@
           </div>
         </div>
 
-        <!-- 觸控滑動即時數據顯示欄 (手指按住滑動時即時更新) -->
+        <!-- 觸控滑動即時數據顯示欄 -->
         <div id="chartTooltipBar" style="display:flex; justify-content:space-between; align-items:center; background:rgba(56,189,248,0.06); border:1px solid rgba(56,189,248,0.18); padding:5px 8px; border-radius:6px; margin-bottom:8px; font-size:0.72rem; font-family:monospace; min-height:26px;">
           <span id="ttDate" style="color:#fff; font-weight:700;">👆 滑動圖表查看數據</span>
           <span id="ttMetric" style="color:#38bdf8; font-weight:800;"></span>
@@ -337,13 +339,21 @@
   let db = JSON.parse(localStorage.getItem('GYM_LOG_DB_V2') || '[]');
   let customExercises = JSON.parse(localStorage.getItem('GYM_CUSTOM_EX') || '[]');
 
+  // 編輯模式狀態變量
+  let editingRecordId = null;
+
   // 圖表互動狀態
   let activeChartData = [];
   let activeChartIsAssist = false;
   let activeHoverIndex = -1;
 
+  // 初始化本地日期 (避免 UTC 跨日偏差)
   const dateInput = document.getElementById('gymDate');
-  dateInput.value = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const localYear = now.getFullYear();
+  const localMonth = String(now.getMonth() + 1).padStart(2, '0');
+  const localDay = String(now.getDate()).padStart(2, '0');
+  dateInput.value = `${localYear}-${localMonth}-${localDay}`;
   dateInput.addEventListener('change', renderTodayList);
 
   function normalizeCategory(cat) {
@@ -358,6 +368,37 @@
 
   function getAllExercises() {
     return [...DEFAULT_EXERCISES, ...customExercises];
+  }
+
+  // 防呆檢查：檢查用戶當前在輸入框是否有實際輸入數值或備忘文字
+  function checkHasDirtyInput() {
+    const rows = document.querySelectorAll('#setsContainer .set-row');
+    for (let r of rows) {
+      const w = r.querySelector('.set-weight').value.trim();
+      const rep = r.querySelector('.set-reps').value.trim();
+      if (w !== '' || rep !== '') return true;
+    }
+    const note = document.getElementById('noteInput').value.trim();
+    if (editingRecordId === null && note !== '') return true;
+    return false;
+  }
+
+  function handleCatClick(cat) {
+    if (cat === currentCategory) return;
+    if (checkHasDirtyInput()) {
+      if (!confirm("當前輸入尚未儲存，是否放棄並切換部位？")) return;
+    }
+    resetEditingMode();
+    filterCat(cat);
+  }
+
+  function handleExClick(name) {
+    if (name === selectedExercise && editingRecordId === null) return;
+    if (checkHasDirtyInput()) {
+      if (!confirm("當前輸入尚未儲存，是否放棄並切換動作？")) return;
+    }
+    resetEditingMode();
+    selectExercise(name);
   }
 
   // 1. Tab 切換
@@ -393,7 +434,7 @@
       const btn = document.createElement('button');
       btn.className = 'ex-btn' + (selectedExercise === e.name ? ' selected' : '');
       btn.textContent = e.name;
-      btn.onclick = () => selectExercise(e.name);
+      btn.onclick = () => handleExClick(e.name);
       grid.appendChild(btn);
     });
 
@@ -458,16 +499,76 @@
     }
   }
 
-  function addSetRow(placeholderWeight = '', placeholderReps = '') {
+  // 載入指定完成紀錄到上方進行修改
+  function loadRecordForEdit(recordId) {
+    const item = db.find(r => r.id === recordId);
+    if (!item) return;
+
+    if (checkHasDirtyInput() && editingRecordId !== recordId) {
+      if (!confirm("當前輸入尚未儲存，是否放棄並載入修改此紀錄？")) return;
+    }
+
+    editingRecordId = item.id;
+    const cat = normalizeCategory(item.category);
+    currentCategory = cat;
+    filterCat(cat);
+    selectedExercise = item.name;
+    renderExGrid();
+
+    const isAssist = item.name.toLowerCase().includes('assist');
+    document.getElementById('weightHeaderLbl').textContent = isAssist ? '輔助重量 (lbs)' : '重量 (lbs)';
+
+    const history = db
+      .filter(it => it.name.toLowerCase() === item.name.toLowerCase() && it.id !== item.id)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const prevBox = document.getElementById('prevSummary');
+    if (history.length > 0) {
+      prevBox.innerHTML = `<strong>${history[0].date}</strong> ➔ ${history[0].formatted}`;
+    } else {
+      prevBox.innerHTML = `<span style="color:var(--text-muted);">歷史紀錄</span>`;
+    }
+
+    // 將該次完成的數據實體載入輸入框
+    const container = document.getElementById('setsContainer');
+    container.innerHTML = '';
+    item.sets.forEach(s => {
+      addSetRow(s.weight, s.reps, true);
+    });
+
+    document.getElementById('noteInput').value = item.note || '';
+
+    // 更新儲存按鈕外觀為「修改模式」
+    const saveBtn = document.getElementById('btnSave');
+    saveBtn.textContent = '💾 更新修改紀錄 (點擊保存)';
+    saveBtn.classList.add('editing-mode');
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast(`✏️ 載入 ${item.name} 進行修改`);
+  }
+
+  function resetEditingMode() {
+    editingRecordId = null;
+    const saveBtn = document.getElementById('btnSave');
+    saveBtn.textContent = '💾 儲存動作';
+    saveBtn.classList.remove('editing-mode');
+  }
+
+  function addSetRow(wVal = '', repVal = '', isEditValue = false) {
     const container = document.getElementById('setsContainer');
     const setIndex = container.children.length + 1;
 
     const row = document.createElement('div');
     row.className = 'set-row';
+    const initW = isEditValue ? wVal : '';
+    const initRep = isEditValue ? repVal : '';
+    const phW = (!isEditValue && wVal !== '') ? wVal : 'lbs';
+    const phRep = (!isEditValue && repVal !== '') ? repVal : '次';
+
     row.innerHTML = `
       <div class="set-tag">S${setIndex}</div>
-      <input type="number" step="any" class="num-input set-weight" placeholder="${placeholderWeight !== '' ? placeholderWeight : 'lbs'}" value="">
-      <input type="number" class="num-input set-reps" placeholder="${placeholderReps !== '' ? placeholderReps : '次'}" value="">
+      <input type="number" step="any" class="num-input set-weight" placeholder="${phW}" value="${initW}">
+      <input type="number" class="num-input set-reps" placeholder="${phRep}" value="${initRep}">
       <button class="btn-del-set" onclick="delSetRow(this)">✕</button>
     `;
     container.appendChild(row);
@@ -482,7 +583,7 @@
     });
   }
 
-  // 4. 儲存動作 (無輸入自動採用 Placeholder 舊數據)
+  // 4. 儲存動作 (支援新增與更新覆蓋)
   function saveExerciseRecord() {
     const date = dateInput.value;
     const note = document.getElementById('noteInput').value.trim();
@@ -514,22 +615,36 @@
     const matched = all.find(e => e.name.toLowerCase() === selectedExercise.toLowerCase());
     const matchCat = matched ? normalizeCategory(matched.cat) : currentCategory;
 
-    const record = {
-      id: Date.now(),
-      date: date,
-      name: selectedExercise,
-      category: matchCat,
-      sets: sets,
-      note: note,
-      formatted: formatted
-    };
+    if (editingRecordId !== null) {
+      // 原地更新修改模式
+      const idx = db.findIndex(r => r.id === editingRecordId);
+      if (idx !== -1) {
+        db[idx].sets = sets;
+        db[idx].note = note;
+        db[idx].formatted = formatted;
+        db[idx].category = matchCat;
+        db[idx].name = selectedExercise;
+      }
+      showToast(`✅ 已更新 ${selectedExercise}`);
+      resetEditingMode();
+    } else {
+      // 原生新增模式
+      const record = {
+        id: Date.now(),
+        date: date,
+        name: selectedExercise,
+        category: matchCat,
+        sets: sets,
+        note: note,
+        formatted: formatted
+      };
+      db.push(record);
+      showToast(`✅ 已儲存 ${selectedExercise}`);
+    }
 
-    db.push(record);
     localStorage.setItem('GYM_LOG_DB_V2', JSON.stringify(db));
-
     renderTodayList();
     selectExercise(selectedExercise);
-    showToast(`✅ 已儲存 ${selectedExercise}`);
   }
 
   function formatSetsToText(sets, note) {
@@ -559,7 +674,7 @@
     setTimeout(() => t.classList.remove('show'), 1500);
   }
 
-  // 5. 今日完成清單
+  // 5. 今日完成清單 (點擊紀錄項目可直接載入上方修改)
   function renderTodayList() {
     const curDate = dateInput.value;
     const listEl = document.getElementById('todayList');
@@ -571,10 +686,10 @@
     }
 
     listEl.innerHTML = items.map(item => `
-      <div class="log-item">
+      <div class="log-item" onclick="loadRecordForEdit(${item.id})">
         <div class="log-head">
-          <span class="log-title">${item.name}</span>
-          <button style="color:var(--danger); background:none; border:none; cursor:pointer; font-size:0.75rem;" onclick="deleteRecord(${item.id})">刪除</button>
+          <span class="log-title">${item.name} <span style="font-size:0.65rem; color:var(--warning); font-weight:normal;">(點擊修改)</span></span>
+          <button style="color:var(--danger); background:none; border:none; cursor:pointer; font-size:0.75rem;" onclick="event.stopPropagation(); deleteRecord(${item.id})">刪除</button>
         </div>
         <div class="log-body">${item.formatted}</div>
       </div>
@@ -582,6 +697,7 @@
   }
 
   function deleteRecord(id) {
+    if (editingRecordId === id) resetEditingMode();
     db = db.filter(item => item.id !== id);
     localStorage.setItem('GYM_LOG_DB_V2', JSON.stringify(db));
     renderTodayList();
@@ -589,6 +705,7 @@
     showToast('🗑️ 已刪除記錄');
   }
 
+  // 6. 複製今日格式 (徹底修復 UTC 時區導致日期變昨天問題)
   function copyTodayFormatted() {
     const curDate = dateInput.value;
     const items = db.filter(item => item.date === curDate);
@@ -596,13 +713,15 @@
       showToast('⚠️ 今日無任何記錄');
       return;
     }
-    const d = new Date(curDate);
-    let out = `${d.getDate()}/${d.getMonth() + 1}\n`;
+    
+    // 直接字串分割取得選取日期，絕不受瀏覽器 UTC-4 時區偏移影響
+    const [y, m, d] = curDate.split('-').map(v => parseInt(v, 10));
+    let out = `${d}/${m}\n`;
     items.forEach(item => { out += `${item.name} ${item.formatted}\n`; });
     navigator.clipboard.writeText(out.trim()).then(() => showToast('📋 已複製發佈文字'));
   }
 
-  // 6. 之前記錄
+  // 7. 歷史記錄
   function renderHistory() {
     const listEl = document.getElementById('historyList');
     if (db.length === 0) {
@@ -626,7 +745,7 @@
       `).join('');
 
       return `
-        <div class="log-item" style="margin-bottom:10px;">
+        <div class="log-item" style="margin-bottom:10px; cursor:default;">
           <div class="log-head" style="border-bottom:1px solid var(--border); padding-bottom:5px;">
             <span style="font-weight:800; color:#fff;">📅 ${date}</span>
             <span style="font-size:0.68rem; color:var(--text-muted);">${items.length} 個動作</span>
@@ -637,7 +756,7 @@
     }).join('');
   }
 
-  // 7. 深度分析數據 (折線圖 + 指標 + Timeline)
+  // 8. 深度分析數據 (折線圖 + 指標 + Timeline)
   function populateAnalyticsDropdown() {
     const sel = document.getElementById('analyticsExSelect');
     sel.innerHTML = ANALYTICS_TARGET_EXERCISES.map(e => `<option value="${e}">${e}</option>`).join('');
@@ -650,7 +769,7 @@
     if (!exName) return;
 
     const recordsDesc = db.filter(i => i.name.toLowerCase() === exName.toLowerCase()).sort((a, b) => new Date(b.date) - new Date(a.date));
-    const recordsAsc = [...recordsDesc].reverse(); // 按時間由舊至新繪圖
+    const recordsAsc = [...recordsDesc].reverse();
     const isAssist = exName.toLowerCase().includes('assist');
 
     if (recordsDesc.length === 0) {
@@ -722,7 +841,6 @@
     document.getElementById('statTotalSets').textContent = `${totalSetsCount} 組 (${recordsDesc.length} 次)`;
     timelineEl.innerHTML = timelineHtml;
 
-    // 格式化折線圖數據
     activeChartData = recordsAsc.map(rec => {
       let sessionVol = 0;
       let sessionMetric = 0;
@@ -744,19 +862,18 @@
       }
       return {
         fullDate: rec.date,
-        date: rec.date.slice(5).replace('-', '/'), // MM/DD
+        date: rec.date.slice(5).replace('-', '/'),
         metric: sessionMetric,
         volume: sessionVol
       };
     });
     activeChartIsAssist = isAssist;
-    activeHoverIndex = activeChartData.length - 1; // 預設高亮最新一次
+    activeHoverIndex = activeChartData.length - 1;
 
     updateChartTooltip(activeHoverIndex);
     drawChart();
   }
 
-  // 更新圖表頂部即時數據指示器
   function updateChartTooltip(idx) {
     if (idx < 0 || idx >= activeChartData.length) {
       document.getElementById('ttDate').textContent = '👆 滑動圖表查看數據';
@@ -770,7 +887,6 @@
     document.getElementById('ttVol').textContent = `容量: ${Math.round(d.volume).toLocaleString()} lbs`;
   }
 
-  // 繪製高解析度折線圖 (不重疊 + 智能抽樣 + 觸控十字準星)
   function drawChart() {
     const canvas = document.getElementById('progressChart');
     if (!canvas || activeChartData.length === 0) return;
@@ -808,7 +924,6 @@
     const getY_M = (val) => padT + plotH - ((val - minM) / (maxM - minM)) * plotH;
     const getY_V = (val) => padT + plotH - ((val - minV) / (maxV - minV)) * plotH;
 
-    // 1. 水平背景網格線
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 3; i++) {
@@ -819,7 +934,7 @@
       ctx.stroke();
     }
 
-    // 2. 繪製黃色總容量折線
+    // 總容量
     ctx.strokeStyle = '#f59e0b';
     ctx.lineWidth = 1.8;
     ctx.beginPath();
@@ -831,7 +946,7 @@
     });
     ctx.stroke();
 
-    // 3. 繪製青色重量/1RM折線
+    // 重量/1RM
     ctx.strokeStyle = '#38bdf8';
     ctx.lineWidth = 2.2;
     ctx.beginPath();
@@ -843,10 +958,8 @@
     });
     ctx.stroke();
 
-    // 4. 繪製精巧數據節點 (無文字重疊)
     activeChartData.forEach((d, i) => {
       const x = getX(i);
-      // 只在數據點少於 30 筆或為選中點時繪製小圓點
       if (activeChartData.length <= 30 || i === activeHoverIndex) {
         ctx.fillStyle = '#38bdf8';
         ctx.beginPath();
@@ -855,7 +968,6 @@
       }
     });
 
-    // 5. 智能 X 軸日期抽樣標籤 (永遠保持 4~5 個，不擠壓)
     const len = activeChartData.length;
     let labelIndices = [];
     if (len <= 5) {
@@ -872,13 +984,11 @@
       ctx.fillText(activeChartData[idx].date, x, h - 6);
     });
 
-    // 6. 觸控滑動十字準星 (Crosshair & Active Highlight)
     if (activeHoverIndex >= 0 && activeHoverIndex < activeChartData.length) {
       const hX = getX(activeHoverIndex);
       const hY_M = getY_M(activeChartData[activeHoverIndex].metric);
       const hY_V = getY_V(activeChartData[activeHoverIndex].volume);
 
-      // 垂直虛線
       ctx.save();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
       ctx.lineWidth = 1;
@@ -889,13 +999,11 @@
       ctx.stroke();
       ctx.restore();
 
-      // 容量高亮光點 (黃)
       ctx.fillStyle = '#f59e0b';
       ctx.beginPath();
       ctx.arc(hX, hY_V, 4.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // 1RM 高亮光點 (青)
       ctx.fillStyle = '#0b0f17';
       ctx.beginPath();
       ctx.arc(hX, hY_M, 6, 0, Math.PI * 2);
@@ -924,7 +1032,6 @@
     updateChartTooltip(-1);
   }
 
-  // 綁定手機 Touch 與 滑鼠滑動事件
   const chartCanvas = document.getElementById('progressChart');
   function handleChartHover(e) {
     if (activeChartData.length === 0) return;
@@ -980,12 +1087,12 @@
     }).join('');
   }
 
-  // 8. 匯入 / 匯出 .json 檔案
+  // 9. 匯入 / 匯出 .json 檔案
   function exportJSONFile() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
     const a = document.createElement('a');
     a.setAttribute("href", dataStr);
-    a.setAttribute("download", `gym_backup_${new Date().toISOString().split('T')[0]}.json`);
+    a.setAttribute("download", `gym_backup_${dateInput.value}.json`);
     document.body.appendChild(a);
     a.click();
     a.remove();
