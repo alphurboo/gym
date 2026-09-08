@@ -364,7 +364,7 @@
     return [...DEFAULT_EXERCISES, ...customExercises];
   }
 
-  // 取得當前輸入框數值快照
+  // 取得當前輸入框數值快照 (僅鎖定重量與次數文字框)
   function getSetsSnapshot() {
     const rows = document.querySelectorAll('#setsContainer .set-row');
     const values = [];
@@ -376,7 +376,7 @@
     return values.join('|');
   }
 
-  // 防呆檢查：只在「重量」或「Reps」輸入框有手動輸入或實際改變時才提示
+  // 防呆檢查：只在「重量」或「Reps」輸入框有實際輸入內容或修改過時才提示
   function checkHasDirtyInput() {
     const currentSnapshot = getSetsSnapshot();
     if (editingRecordId !== null) {
@@ -1095,15 +1095,39 @@
     }).join('');
   }
 
-  // 9. 匯入 / 匯出 .json 檔案
-  function exportJSONFile() {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+  // 9. 匯入 / 匯出 .json 檔案 (適配 iOS PWA 獨立視窗)
+  async function exportJSONFile() {
+    const fileName = `gym_backup_${dateInput.value}.json`;
+    const jsonStr = JSON.stringify(db, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+
+    // 優先使用 Web Share API（iOS PWA 可直接存入「檔案」）
+    const file = new File([blob], fileName, { type: "application/json" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: "GymLog Backup",
+          text: `GymLog 備份檔案 (${dateInput.value})`
+        });
+        showToast('✅ 備份已分享/儲存');
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    // 瀏覽器標準下載降級
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.setAttribute("href", dataStr);
-    a.setAttribute("download", `gym_backup_${dateInput.value}.json`);
+    a.href = url;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
-    a.remove();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
     showToast('📥 備份檔案已下載');
   }
 
