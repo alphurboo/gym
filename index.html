@@ -364,7 +364,7 @@
     return [...DEFAULT_EXERCISES, ...customExercises];
   }
 
-  // 取得當前輸入框數值快照 (僅鎖定重量與次數文字框)
+  // 取得當前輸入框數值快照 (只記錄重量與次數文字框)
   function getSetsSnapshot() {
     const rows = document.querySelectorAll('#setsContainer .set-row');
     const values = [];
@@ -376,7 +376,7 @@
     return values.join('|');
   }
 
-  // 防呆檢查：只在「重量」或「Reps」輸入框有實際輸入內容或修改過時才提示
+  // 防呆檢查：只在「重量」或「Reps」輸入框有實際輸入內容或改變時才提示
   function checkHasDirtyInput() {
     const currentSnapshot = getSetsSnapshot();
     if (editingRecordId !== null) {
@@ -510,7 +510,7 @@
     initialSetsSnapshot = getSetsSnapshot();
   }
 
-  // 載入指定紀錄進行修改
+  // 載入指定完成紀錄進行修改
   function loadRecordForEdit(recordId) {
     const item = db.find(r => r.id === recordId);
     if (!item) return;
@@ -683,7 +683,7 @@
     setTimeout(() => t.classList.remove('show'), 1500);
   }
 
-  // 5. 今日完成清單
+  // 5. 今日完成清單 (點擊項目可直接修改)
   function renderTodayList() {
     const curDate = dateInput.value;
     const listEl = document.getElementById('todayList');
@@ -714,7 +714,7 @@
     showToast('🗑️ 已刪除記錄');
   }
 
-  // 6. 複製今日格式 (安全字串分割)
+  // 6. 複製今日格式 (安全字串分割，杜絕時區跑位)
   function copyTodayFormatted() {
     const curDate = dateInput.value;
     const items = db.filter(item => item.date === curDate);
@@ -1095,40 +1095,65 @@
     }).join('');
   }
 
-  // 9. 匯入 / 匯出 .json 檔案 (適配 iOS PWA 獨立視窗)
+  // 9. 匯入 / 匯出 .json 檔案 (徹底適配 iOS PWA 獨立視窗)
   async function exportJSONFile() {
     const fileName = `gym_backup_${dateInput.value}.json`;
     const jsonStr = JSON.stringify(db, null, 2);
-    const blob = new Blob([jsonStr], { type: "application/json" });
 
-    // 優先使用 Web Share API（iOS PWA 可直接存入「檔案」）
-    const file = new File([blob], fileName, { type: "application/json" });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    // 方法 A：優先嘗試 iOS 原生 Share Sheet (改用 text/plain 避免 iOS 阻擋非已知 MIME)
+    if (navigator.share) {
       try {
-        await navigator.share({
-          files: [file],
-          title: "GymLog Backup",
-          text: `GymLog 備份檔案 (${dateInput.value})`
-        });
-        showToast('✅ 備份已分享/儲存');
-        return;
+        const file = new File([jsonStr], fileName, { type: "text/plain" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: "GymLog 備份"
+          });
+          showToast('✅ 備份已儲存');
+          return;
+        } else {
+          await navigator.share({
+            title: "GymLog JSON 備份",
+            text: jsonStr
+          });
+          showToast('✅ 備份文字已分享');
+          return;
+        }
       } catch (err) {
         if (err.name === 'AbortError') return;
+        console.warn("Share failed, falling back...", err);
       }
     }
 
-    // 瀏覽器標準下載降級
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 100);
-    showToast('📥 備份檔案已下載');
+    // 方法 B：嘗試傳統 Blob 下載 (適用於 Safari 網頁版或電腦)
+    try {
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 200);
+      showToast('📥 備份檔案已下載');
+      return;
+    } catch (e) {
+      console.warn("Blob download failed", e);
+    }
+
+    // 方法 C (iOS PWA 終極保底)：直接複製全部 JSON 文字
+    fallbackCopyJSON(jsonStr);
+  }
+
+  function fallbackCopyJSON(jsonStr) {
+    navigator.clipboard.writeText(jsonStr).then(() => {
+      alert("⚠️ iOS 桌面限制無法直接建立檔案。\n\n✅ 完整備份數據已成功【複製到剪貼簿】！\n請直接打開手機「備忘錄 (Notes)」貼上儲存即可。");
+    }).catch(() => {
+      prompt("請手動全選並複製以下備份數據：", jsonStr);
+    });
   }
 
   function handleFileImport(e) {
@@ -1168,5 +1193,3 @@
   selectExercise('Chest press');
   renderTodayList();
 </script>
-</body>
-</html>
