@@ -283,7 +283,7 @@
         <button class="btn-action" style="padding:11px; font-weight:700; color:#fff;" onclick="document.getElementById('jsonFileInput').click()">📤 選擇 .json 檔案匯入</button>
       </div>
       <p style="font-size:0.68rem; color:var(--text-muted); margin-top:10px; line-height:1.4;">
-        * 匯入檔案會將舊紀錄與自訂動作自動合併入手機 LocalStorage 內。
+        * 匯入檔案會將舊紀錄、自訂動作與已刪除清單自動合併入手機 LocalStorage 內。
       </p>
     </div>
   </div>
@@ -355,6 +355,7 @@
   let selectedExercise = 'Chest press';
   let db = JSON.parse(localStorage.getItem('GYM_LOG_DB_V2') || '[]');
   let customExercises = JSON.parse(localStorage.getItem('GYM_CUSTOM_EX') || '[]');
+  let deletedExercises = JSON.parse(localStorage.getItem('GYM_DELETED_EX') || '[]');
 
   // 長按與管理模態變量
   let targetManagingEx = null;
@@ -391,7 +392,8 @@
   }
 
   function getAllExercises() {
-    return [...DEFAULT_EXERCISES, ...customExercises];
+    const combined = [...DEFAULT_EXERCISES, ...customExercises];
+    return combined.filter(e => !deletedExercises.includes(e.name.toLowerCase()));
   }
 
   function getSetsSnapshot() {
@@ -473,7 +475,6 @@
       btn.className = 'ex-btn' + (selectedExercise === e.name ? ' selected' : '');
       btn.textContent = e.name;
 
-      // 綁定長按事件 (Touch & Mouse)
       const startPress = () => {
         isLongPressTriggered = false;
         pressTimer = setTimeout(() => {
@@ -511,7 +512,6 @@
     grid.appendChild(addBtn);
   }
 
-  // 長按管理動作
   function openManageModal(exObj) {
     targetManagingEx = exObj;
     document.getElementById('editExNameInput').value = exObj.name;
@@ -534,17 +534,14 @@
       return;
     }
 
-    // 1. 更新自訂庫或新增重命名映射
     const custIdx = customExercises.findIndex(e => e.name.toLowerCase() === oldName.toLowerCase());
     if (custIdx !== -1) {
       customExercises[custIdx].name = newName;
     } else {
-      // 屬於預設動作，將其轉入自訂庫覆蓋
       customExercises.push({ cat: targetManagingEx.cat, name: newName });
     }
     localStorage.setItem('GYM_CUSTOM_EX', JSON.stringify(customExercises));
 
-    // 2. 同步更新所有歷史紀錄中的名稱
     let updateCount = 0;
     db.forEach(item => {
       if (item.name.toLowerCase() === oldName.toLowerCase()) {
@@ -568,17 +565,28 @@
   function applyExerciseDelete() {
     if (!targetManagingEx) return;
     const name = targetManagingEx.name;
+    const lowerName = name.toLowerCase();
+
     if (!confirm(`確定要刪除動作【${name}】嗎？\n(注意：歷史訓練紀錄仍會保留)`)) return;
 
-    customExercises = customExercises.filter(e => e.name.toLowerCase() !== name.toLowerCase());
+    // 自訂動作過濾移除
+    customExercises = customExercises.filter(e => e.name.toLowerCase() !== lowerName);
     localStorage.setItem('GYM_CUSTOM_EX', JSON.stringify(customExercises));
 
+    // 加入黑名單過濾預設動作
+    if (!deletedExercises.includes(lowerName)) {
+      deletedExercises.push(lowerName);
+      localStorage.setItem('GYM_DELETED_EX', JSON.stringify(deletedExercises));
+    }
+
     toggleModal('manageExModal');
+
     const all = getAllExercises().filter(e => normalizeCategory(e.cat) === currentCategory);
     selectedExercise = all.length > 0 ? all[0].name : '';
     renderExGrid();
     if (selectedExercise) selectExercise(selectedExercise);
-    showToast(`🗑️ 已移除動作：${name}`);
+    
+    showToast(`🗑️ 已永久刪除動作：${name}`);
   }
 
   function saveCustomExercise() {
@@ -590,6 +598,10 @@
       showToast('⚠️ 動作名稱已存在');
       return;
     }
+
+    // 若曾刪除過則從黑名單移除
+    deletedExercises = deletedExercises.filter(d => d !== name.toLowerCase());
+    localStorage.setItem('GYM_DELETED_EX', JSON.stringify(deletedExercises));
 
     customExercises.push({ cat, name });
     localStorage.setItem('GYM_CUSTOM_EX', JSON.stringify(customExercises));
@@ -1069,7 +1081,6 @@
       ctx.stroke();
     }
 
-    // 總容量
     ctx.strokeStyle = '#f59e0b';
     ctx.lineWidth = 1.8;
     ctx.beginPath();
@@ -1081,7 +1092,6 @@
     });
     ctx.stroke();
 
-    // 重量/1RM
     ctx.strokeStyle = '#38bdf8';
     ctx.lineWidth = 2.2;
     ctx.beginPath();
@@ -1222,20 +1232,19 @@
     }).join('');
   }
 
-  // 9. 匯入 / 匯出 .json 檔案 (整合自訂動作 + 徹底修復 iOS 2 Items 錯誤)
+  // 9. 匯入 / 匯出 .json 檔案
   async function exportJSONFile() {
     const fileName = `gym_backup_${dateInput.value}.json`;
     
-    // 封裝包含歷史數據與自訂動作的整合物件
     const exportPayload = {
       version: 2,
       exportedAt: new Date().toISOString(),
       customExercises: customExercises,
+      deletedExercises: deletedExercises,
       logs: db
     };
     const jsonStr = JSON.stringify(exportPayload, null, 2);
 
-    // 解決 iOS 出現 2 Items: 僅傳入 files，絕不同時傳入 title/text
     if (navigator.share) {
       try {
         const file = new File([jsonStr], fileName, { type: "application/json" });
@@ -1252,7 +1261,6 @@
       }
     }
 
-    // 電腦或 Safari 備用下載機制
     try {
       const blob = new Blob([jsonStr], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -1291,13 +1299,12 @@
       try {
         const imported = JSON.parse(evt.target.result);
         
-        // 兼容模式 1：新格式 (含 customExercises 與 logs)
+        // 模式 1：新版全量格式
         if (imported && imported.logs && Array.isArray(imported.logs)) {
           db = imported.logs;
           localStorage.setItem('GYM_LOG_DB_V2', JSON.stringify(db));
 
           if (imported.customExercises && Array.isArray(imported.customExercises)) {
-            // 合併現有與匯入的自訂動作，避免重複
             imported.customExercises.forEach(newItem => {
               if (!customExercises.some(old => old.name.toLowerCase() === newItem.name.toLowerCase())) {
                 customExercises.push(newItem);
@@ -1306,14 +1313,23 @@
             localStorage.setItem('GYM_CUSTOM_EX', JSON.stringify(customExercises));
           }
 
+          if (imported.deletedExercises && Array.isArray(imported.deletedExercises)) {
+            imported.deletedExercises.forEach(d => {
+              if (!deletedExercises.includes(d.toLowerCase())) {
+                deletedExercises.push(d.toLowerCase());
+              }
+            });
+            localStorage.setItem('GYM_DELETED_EX', JSON.stringify(deletedExercises));
+          }
+
           toggleModal('backupModal');
           renderExGrid();
           renderTodayList();
           renderHistory();
           selectExercise(selectedExercise);
-          showToast(`✅ 成功匯入 ${db.length} 條紀錄與自訂動作！`);
+          showToast(`✅ 成功匯入紀錄與自訂動作！`);
         } 
-        // 兼容模式 2：舊格式 (純 logs 陣列)
+        // 模式 2：舊版純陣列格式
         else if (Array.isArray(imported)) {
           db = imported;
           localStorage.setItem('GYM_LOG_DB_V2', JSON.stringify(db));
