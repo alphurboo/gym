@@ -45,13 +45,29 @@
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 13px; margin-bottom: 12px; }
     .card-title { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 9px; display: flex; justify-content: space-between; align-items: center; }
 
-    /* 部位標籤：英文 5 等分 一行過排版 */
+    /* 部位標籤：英文 5 等分 */
     .chip-group { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 8px; }
     .chip { font-size: 0.68rem; font-weight: 700; padding: 7px 1px; border-radius: 8px; border: 1px solid var(--border); background: var(--inner); color: var(--text-muted); text-align: center; cursor: pointer; white-space: nowrap; }
     .chip.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
 
-    .ex-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; max-height: 135px; overflow-y: auto; margin-bottom: 8px; }
-    .ex-btn { font-size: 0.72rem; padding: 8px 3px; text-align: center; border-radius: 8px; border: 1px solid var(--border); background: var(--inner); color: var(--text); cursor: pointer; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ex-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; max-height: 145px; overflow-y: auto; margin-bottom: 8px; }
+    .ex-btn { 
+      font-size: 0.72rem; 
+      padding: 8px 3px; 
+      text-align: center; 
+      border-radius: 8px; 
+      border: 1px solid var(--border); 
+      background: var(--inner); 
+      color: var(--text); 
+      cursor: pointer; 
+      font-weight: 600; 
+      white-space: nowrap; 
+      overflow: hidden; 
+      text-overflow: ellipsis;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
     .ex-btn.selected { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 800; }
     .btn-custom-ex { grid-column: span 3; background: rgba(56, 189, 248, 0.08); border: 1px dashed var(--accent); color: var(--accent); font-size: 0.72rem; padding: 6px; border-radius: 8px; cursor: pointer; font-weight: 700; text-align: center; margin-top: 2px; }
 
@@ -117,6 +133,7 @@
     .modal.active { display: flex; }
     .modal-content { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; width: 100%; max-width: 380px; }
     .btn-action { background: var(--card); border: 1px solid var(--border); color: var(--text-muted); font-size: 0.72rem; padding: 5px 9px; border-radius: 8px; cursor: pointer; }
+    .btn-danger { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: var(--danger); font-size: 0.82rem; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 700; width: 100%; }
   </style>
 </head>
 <body>
@@ -132,7 +149,7 @@
   <section id="tab1">
     <div class="card">
       <div class="card-title">
-        <span>🏋️ 訓練動作</span>
+        <span>🏋️ 訓練動作 <span style="font-size:0.65rem; color:var(--text-muted); font-weight:normal;">(長按動作可修改/刪除)</span></span>
         <input type="date" id="gymDate" style="background:transparent; border:none; color:var(--text-muted); font-size:0.75rem; outline:none;">
       </div>
 
@@ -261,12 +278,12 @@
       </div>
 
       <div style="display:flex; flex-direction:column; gap:8px;">
-        <button class="btn-save" onclick="exportJSONFile()">📥 下載備份 .json 檔案</button>
+        <button class="btn-save" onclick="exportJSONFile()">📥 儲存備份 .json 檔案</button>
         <input type="file" id="jsonFileInput" accept=".json" style="display:none;" onchange="handleFileImport(event)" />
         <button class="btn-action" style="padding:11px; font-weight:700; color:#fff;" onclick="document.getElementById('jsonFileInput').click()">📤 選擇 .json 檔案匯入</button>
       </div>
       <p style="font-size:0.68rem; color:var(--text-muted); margin-top:10px; line-height:1.4;">
-        * 匯入檔案會將舊紀錄與新紀錄自動合併入手機 LocalStorage 內。
+        * 匯入檔案會將舊紀錄與自訂動作自動合併入手機 LocalStorage 內。
       </p>
     </div>
   </div>
@@ -288,6 +305,25 @@
           <option value="Legs">Legs</option>
         </select>
         <button class="btn-save" onclick="saveCustomExercise()">確認新增動作</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 管理/修改/刪除動作 Modal (長按觸發) -->
+  <div class="modal" id="manageExModal">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="font-size:0.92rem; color:var(--accent);">⚙️ 管理動作</h3>
+        <button onclick="toggleModal('manageExModal')" style="background:transparent; border:none; color:var(--text); font-size:1.2rem; cursor:pointer;">✕</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div>
+          <label style="font-size:0.68rem; color:var(--text-muted); display:block; margin-bottom:4px;">修改動作名稱 (將同步更新歷史資料)</label>
+          <input type="text" id="editExNameInput" style="width:100%; background:var(--inner); border:1px solid var(--border); color:#fff; padding:9px; border-radius:8px; font-size:0.82rem; outline:none;">
+        </div>
+        <button class="btn-save" onclick="applyExerciseRename()">儲存新名稱</button>
+        <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
+        <button class="btn-danger" onclick="applyExerciseDelete()">🗑️ 刪除此動作</button>
       </div>
     </div>
   </div>
@@ -315,22 +351,15 @@
     { cat: 'Legs', name: 'Leg curl' }
   ];
 
-  const ANALYTICS_TARGET_EXERCISES = [
-    'Chest press',
-    'Assist pullup',
-    'Pec fly',
-    'Re pec fly',
-    'Lateral raise',
-    'Overhead Triceps Extension',
-    'Tricep Pushdown',
-    'Incline Dumbbell Curl',
-    'Preacher Curl'
-  ];
-
   let currentCategory = 'Chest';
   let selectedExercise = 'Chest press';
   let db = JSON.parse(localStorage.getItem('GYM_LOG_DB_V2') || '[]');
   let customExercises = JSON.parse(localStorage.getItem('GYM_CUSTOM_EX') || '[]');
+
+  // 長按與管理模態變量
+  let targetManagingEx = null;
+  let pressTimer = null;
+  let isLongPressTriggered = false;
 
   // 編輯模式與快照變量
   let editingRecordId = null;
@@ -341,7 +370,7 @@
   let activeChartIsAssist = false;
   let activeHoverIndex = -1;
 
-  // 初始化本地日期 (避免 UTC 跨日偏差)
+  // 初始化本地日期
   const dateInput = document.getElementById('gymDate');
   const now = new Date();
   const localYear = now.getFullYear();
@@ -352,11 +381,12 @@
 
   function normalizeCategory(cat) {
     if (!cat) return 'Chest';
-    if (cat === '胸' || cat.toLowerCase() === 'chest') return 'Chest';
-    if (cat === '背' || cat.toLowerCase() === 'back') return 'Back';
-    if (cat === '手臂' || cat.toLowerCase() === 'arms') return 'Arms';
-    if (cat === '肩' || cat.toLowerCase() === 'shoulders') return 'Shoulders';
-    if (cat === '腿' || cat.toLowerCase() === 'legs') return 'Legs';
+    const l = cat.toLowerCase();
+    if (cat === '胸' || l === 'chest') return 'Chest';
+    if (cat === '背' || l === 'back') return 'Back';
+    if (cat === '手臂' || l === 'arms') return 'Arms';
+    if (cat === '肩' || l === 'shoulders') return 'Shoulders';
+    if (cat === '腿' || l === 'legs') return 'Legs';
     return cat;
   }
 
@@ -364,7 +394,6 @@
     return [...DEFAULT_EXERCISES, ...customExercises];
   }
 
-  // 取得當前輸入框數值快照 (只記錄重量與次數文字框)
   function getSetsSnapshot() {
     const rows = document.querySelectorAll('#setsContainer .set-row');
     const values = [];
@@ -376,7 +405,6 @@
     return values.join('|');
   }
 
-  // 防呆檢查：只在「重量」或「Reps」輸入框有實際輸入內容或改變時才提示
   function checkHasDirtyInput() {
     const currentSnapshot = getSetsSnapshot();
     if (editingRecordId !== null) {
@@ -402,6 +430,7 @@
   }
 
   function handleExClick(name) {
+    if (isLongPressTriggered) return;
     if (name === selectedExercise && editingRecordId === null) return;
     if (checkHasDirtyInput()) {
       if (!confirm("當前輸入尚未儲存，是否放棄並切換動作？")) return;
@@ -443,7 +472,32 @@
       const btn = document.createElement('button');
       btn.className = 'ex-btn' + (selectedExercise === e.name ? ' selected' : '');
       btn.textContent = e.name;
-      btn.onclick = () => handleExClick(e.name);
+
+      // 綁定長按事件 (Touch & Mouse)
+      const startPress = () => {
+        isLongPressTriggered = false;
+        pressTimer = setTimeout(() => {
+          isLongPressTriggered = true;
+          if (navigator.vibrate) navigator.vibrate(50);
+          openManageModal(e);
+        }, 500);
+      };
+
+      const clearPress = () => {
+        if (pressTimer) clearTimeout(pressTimer);
+      };
+
+      btn.addEventListener('touchstart', startPress, { passive: true });
+      btn.addEventListener('touchend', clearPress);
+      btn.addEventListener('touchmove', clearPress);
+      btn.addEventListener('mousedown', startPress);
+      btn.addEventListener('mouseup', clearPress);
+      btn.addEventListener('mouseleave', clearPress);
+
+      btn.onclick = () => {
+        if (!isLongPressTriggered) handleExClick(e.name);
+      };
+
       grid.appendChild(btn);
     });
 
@@ -455,6 +509,76 @@
       toggleModal('customExModal');
     };
     grid.appendChild(addBtn);
+  }
+
+  // 長按管理動作
+  function openManageModal(exObj) {
+    targetManagingEx = exObj;
+    document.getElementById('editExNameInput').value = exObj.name;
+    toggleModal('manageExModal');
+  }
+
+  function applyExerciseRename() {
+    if (!targetManagingEx) return;
+    const oldName = targetManagingEx.name;
+    const newName = document.getElementById('editExNameInput').value.trim();
+    if (!newName) return;
+
+    if (oldName === newName) {
+      toggleModal('manageExModal');
+      return;
+    }
+
+    if (getAllExercises().some(e => e.name.toLowerCase() === newName.toLowerCase() && e.name.toLowerCase() !== oldName.toLowerCase())) {
+      showToast('⚠️ 名稱已存在');
+      return;
+    }
+
+    // 1. 更新自訂庫或新增重命名映射
+    const custIdx = customExercises.findIndex(e => e.name.toLowerCase() === oldName.toLowerCase());
+    if (custIdx !== -1) {
+      customExercises[custIdx].name = newName;
+    } else {
+      // 屬於預設動作，將其轉入自訂庫覆蓋
+      customExercises.push({ cat: targetManagingEx.cat, name: newName });
+    }
+    localStorage.setItem('GYM_CUSTOM_EX', JSON.stringify(customExercises));
+
+    // 2. 同步更新所有歷史紀錄中的名稱
+    let updateCount = 0;
+    db.forEach(item => {
+      if (item.name.toLowerCase() === oldName.toLowerCase()) {
+        item.name = newName;
+        updateCount++;
+      }
+    });
+    localStorage.setItem('GYM_LOG_DB_V2', JSON.stringify(db));
+
+    if (selectedExercise.toLowerCase() === oldName.toLowerCase()) {
+      selectedExercise = newName;
+    }
+
+    toggleModal('manageExModal');
+    renderExGrid();
+    renderTodayList();
+    selectExercise(selectedExercise);
+    showToast(`✅ 已更名並同步 ${updateCount} 條紀錄！`);
+  }
+
+  function applyExerciseDelete() {
+    if (!targetManagingEx) return;
+    const name = targetManagingEx.name;
+    if (!confirm(`確定要刪除動作【${name}】嗎？\n(注意：歷史訓練紀錄仍會保留)`)) return;
+
+    customExercises = customExercises.filter(e => e.name.toLowerCase() !== name.toLowerCase());
+    localStorage.setItem('GYM_CUSTOM_EX', JSON.stringify(customExercises));
+
+    toggleModal('manageExModal');
+    const all = getAllExercises().filter(e => normalizeCategory(e.cat) === currentCategory);
+    selectedExercise = all.length > 0 ? all[0].name : '';
+    renderExGrid();
+    if (selectedExercise) selectExercise(selectedExercise);
+    showToast(`🗑️ 已移除動作：${name}`);
   }
 
   function saveCustomExercise() {
@@ -478,6 +602,7 @@
 
   // 3. 選中動作 ➔ 自動以半透明 Placeholder 帶入上次數據
   function selectExercise(name) {
+    if (!name) return;
     selectedExercise = name;
     renderExGrid();
 
@@ -510,7 +635,6 @@
     initialSetsSnapshot = getSetsSnapshot();
   }
 
-  // 載入指定完成紀錄進行修改
   function loadRecordForEdit(recordId) {
     const item = db.find(r => r.id === recordId);
     if (!item) return;
@@ -594,7 +718,7 @@
     });
   }
 
-  // 4. 儲存動作 (支援新增與更新覆蓋)
+  // 4. 儲存動作
   function saveExerciseRecord() {
     const date = dateInput.value;
     const note = document.getElementById('noteInput').value.trim();
@@ -683,7 +807,7 @@
     setTimeout(() => t.classList.remove('show'), 1500);
   }
 
-  // 5. 今日完成清單 (點擊項目可直接修改)
+  // 5. 今日清單
   function renderTodayList() {
     const curDate = dateInput.value;
     const listEl = document.getElementById('todayList');
@@ -714,7 +838,7 @@
     showToast('🗑️ 已刪除記錄');
   }
 
-  // 6. 複製今日格式 (安全字串分割，杜絕時區跑位)
+  // 6. 複製今日格式
   function copyTodayFormatted() {
     const curDate = dateInput.value;
     const items = db.filter(item => item.date === curDate);
@@ -767,7 +891,10 @@
   // 8. 深度分析數據
   function populateAnalyticsDropdown() {
     const sel = document.getElementById('analyticsExSelect');
-    sel.innerHTML = ANALYTICS_TARGET_EXERCISES.map(e => `<option value="${e}">${e}</option>`).join('');
+    const all = getAllExercises().map(e => e.name);
+    const unique = [...new Set(all)];
+    sel.innerHTML = unique.map(e => `<option value="${e}">${e}</option>`).join('');
+    if (unique.includes(selectedExercise)) sel.value = selectedExercise;
     renderAnalytics();
   }
 
@@ -1095,28 +1222,28 @@
     }).join('');
   }
 
-  // 9. 匯入 / 匯出 .json 檔案 (徹底適配 iOS PWA 獨立視窗)
+  // 9. 匯入 / 匯出 .json 檔案 (整合自訂動作 + 徹底修復 iOS 2 Items 錯誤)
   async function exportJSONFile() {
     const fileName = `gym_backup_${dateInput.value}.json`;
-    const jsonStr = JSON.stringify(db, null, 2);
+    
+    // 封裝包含歷史數據與自訂動作的整合物件
+    const exportPayload = {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      customExercises: customExercises,
+      logs: db
+    };
+    const jsonStr = JSON.stringify(exportPayload, null, 2);
 
-    // 方法 A：優先嘗試 iOS 原生 Share Sheet (改用 text/plain 避免 iOS 阻擋非已知 MIME)
+    // 解決 iOS 出現 2 Items: 僅傳入 files，絕不同時傳入 title/text
     if (navigator.share) {
       try {
-        const file = new File([jsonStr], fileName, { type: "text/plain" });
+        const file = new File([jsonStr], fileName, { type: "application/json" });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
-            files: [file],
-            title: "GymLog 備份"
+            files: [file]
           });
           showToast('✅ 備份已儲存');
-          return;
-        } else {
-          await navigator.share({
-            title: "GymLog JSON 備份",
-            text: jsonStr
-          });
-          showToast('✅ 備份文字已分享');
           return;
         }
       } catch (err) {
@@ -1125,7 +1252,7 @@
       }
     }
 
-    // 方法 B：嘗試傳統 Blob 下載 (適用於 Safari 網頁版或電腦)
+    // 電腦或 Safari 備用下載機制
     try {
       const blob = new Blob([jsonStr], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -1144,13 +1271,12 @@
       console.warn("Blob download failed", e);
     }
 
-    // 方法 C (iOS PWA 終極保底)：直接複製全部 JSON 文字
     fallbackCopyJSON(jsonStr);
   }
 
   function fallbackCopyJSON(jsonStr) {
     navigator.clipboard.writeText(jsonStr).then(() => {
-      alert("⚠️ iOS 桌面限制無法直接建立檔案。\n\n✅ 完整備份數據已成功【複製到剪貼簿】！\n請直接打開手機「備忘錄 (Notes)」貼上儲存即可。");
+      alert("⚠️ iOS 桌面限制無法直接建立檔案。\n\n✅ 完整備份數據已成功【複製到剪貼簿】！\n請打開手機「備忘錄 (Notes)」貼上儲存即可。");
     }).catch(() => {
       prompt("請手動全選並複製以下備份數據：", jsonStr);
     });
@@ -1164,7 +1290,31 @@
     reader.onload = function(evt) {
       try {
         const imported = JSON.parse(evt.target.result);
-        if (Array.isArray(imported)) {
+        
+        // 兼容模式 1：新格式 (含 customExercises 與 logs)
+        if (imported && imported.logs && Array.isArray(imported.logs)) {
+          db = imported.logs;
+          localStorage.setItem('GYM_LOG_DB_V2', JSON.stringify(db));
+
+          if (imported.customExercises && Array.isArray(imported.customExercises)) {
+            // 合併現有與匯入的自訂動作，避免重複
+            imported.customExercises.forEach(newItem => {
+              if (!customExercises.some(old => old.name.toLowerCase() === newItem.name.toLowerCase())) {
+                customExercises.push(newItem);
+              }
+            });
+            localStorage.setItem('GYM_CUSTOM_EX', JSON.stringify(customExercises));
+          }
+
+          toggleModal('backupModal');
+          renderExGrid();
+          renderTodayList();
+          renderHistory();
+          selectExercise(selectedExercise);
+          showToast(`✅ 成功匯入 ${db.length} 條紀錄與自訂動作！`);
+        } 
+        // 兼容模式 2：舊格式 (純 logs 陣列)
+        else if (Array.isArray(imported)) {
           db = imported;
           localStorage.setItem('GYM_LOG_DB_V2', JSON.stringify(db));
           toggleModal('backupModal');
@@ -1173,7 +1323,7 @@
           selectExercise(selectedExercise);
           showToast(`✅ 成功匯入 ${db.length} 條紀錄！`);
         } else {
-          showToast('⚠️ 檔案格式錯誤 (非 Array)');
+          showToast('⚠️ 檔案格式錯誤');
         }
       } catch (err) {
         showToast('⚠️ JSON 解析失敗');
@@ -1193,3 +1343,5 @@
   selectExercise('Chest press');
   renderTodayList();
 </script>
+</body>
+</html>
